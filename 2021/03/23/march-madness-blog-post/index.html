@@ -1,0 +1,606 @@
+<!DOCTYPE html>
+<html lang="en-us">
+  <head>
+    <meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="generator" content="Hugo 0.81.0" />
+
+
+<title>March Madness Blog Post  - A Hugo website</title>
+<meta property="og:title" content="March Madness Blog Post  - A Hugo website">
+
+
+  <link href='/favicon.ico' rel='icon' type='image/x-icon'/>
+
+
+
+  
+
+
+
+
+
+
+
+
+<link href='//cdnjs.cloudflare.com/ajax/libs/highlight.js/9.12.0/styles/github.min.css' rel='stylesheet' type='text/css' />
+
+
+
+<link rel="stylesheet" href="/css/fonts.css" media="all">
+<link rel="stylesheet" href="/css/main.css" media="all">
+
+
+
+  </head>
+  <body>
+    <div class="wrapper">
+      <header class="header">
+        <nav class="nav">
+  <a href="/" class="nav-logo">
+    <img src="/images/logo.png"
+         width="50"
+         height="50"
+         alt="Logo">
+  </a>
+
+  <ul class="nav-links">
+    
+    <li><a href="/about/">About</a></li>
+    
+    <li><a href="https://github.com/danielmagnuson">GitHub</a></li>
+    
+    <li><a href="https://twitter.com/dmagnuson_swirl">Twitter</a></li>
+    
+  </ul>
+</nav>
+
+      </header>
+
+
+<main class="content" role="main">
+
+  <article class="article">
+    
+    <span class="article-duration">15 min read</span>
+    
+
+    <h1 class="article-title">March Madness Blog Post </h1>
+
+    
+    <span class="article-date">2021-03-23</span>
+    
+
+    <div class="article-content">
+      
+
+
+<p>Here we will have some libaries loaded in to get things started.</p>
+<pre class="r"><code>library(tidyverse)</code></pre>
+<pre><code>## ── Attaching packages ─────────────────────────────────────── tidyverse 1.3.0 ──</code></pre>
+<pre><code>## ✓ ggplot2 3.3.3     ✓ purrr   0.3.4
+## ✓ tibble  3.0.6     ✓ dplyr   1.0.4
+## ✓ tidyr   1.1.2     ✓ stringr 1.4.0
+## ✓ readr   1.3.1     ✓ forcats 0.4.0</code></pre>
+<pre><code>## ── Conflicts ────────────────────────────────────────── tidyverse_conflicts() ──
+## x dplyr::filter() masks stats::filter()
+## x dplyr::lag()    masks stats::lag()</code></pre>
+<pre class="r"><code>library(tidymodels)</code></pre>
+<pre><code>## ── Attaching packages ────────────────────────────────────── tidymodels 0.1.2 ──</code></pre>
+<pre><code>## ✓ broom     0.7.4      ✓ recipes   0.1.15
+## ✓ dials     0.0.9      ✓ rsample   0.0.8 
+## ✓ infer     0.5.4      ✓ tune      0.1.2 
+## ✓ modeldata 0.1.0      ✓ workflows 0.2.1 
+## ✓ parsnip   0.1.5      ✓ yardstick 0.0.7</code></pre>
+<pre><code>## ── Conflicts ───────────────────────────────────────── tidymodels_conflicts() ──
+## x scales::discard() masks purrr::discard()
+## x dplyr::filter()   masks stats::filter()
+## x recipes::fixed()  masks stringr::fixed()
+## x dplyr::lag()      masks stats::lag()
+## x yardstick::spec() masks readr::spec()
+## x recipes::step()   masks stats::step()</code></pre>
+<pre class="r"><code>library(zoo)</code></pre>
+<pre><code>## 
+## Attaching package: &#39;zoo&#39;</code></pre>
+<pre><code>## The following objects are masked from &#39;package:base&#39;:
+## 
+##     as.Date, as.Date.numeric</code></pre>
+<pre class="r"><code>library(kableExtra)</code></pre>
+<pre><code>## 
+## Attaching package: &#39;kableExtra&#39;</code></pre>
+<pre><code>## The following object is masked from &#39;package:dplyr&#39;:
+## 
+##     group_rows</code></pre>
+<pre class="r"><code>set.seed(1234)
+
+require(doParallel)</code></pre>
+<pre><code>## Loading required package: doParallel</code></pre>
+<pre><code>## Loading required package: foreach</code></pre>
+<pre><code>## 
+## Attaching package: &#39;foreach&#39;</code></pre>
+<pre><code>## The following objects are masked from &#39;package:purrr&#39;:
+## 
+##     accumulate, when</code></pre>
+<pre><code>## Loading required package: iterators</code></pre>
+<pre><code>## Loading required package: parallel</code></pre>
+<pre class="r"><code>cores &lt;- parallel::detectCores(logical = FALSE)</code></pre>
+<p>Here the college basketball logs from 2015 to 2021. I load them into a dataframe called “games”. Wins and losses are being counted up along with Possesions offensive and defensive rating. The equations for offensive and defensive rating are also shown below. The cummulative mean is also being found below. Today I will be showing how I get my coding started in order to predict each 2021 March Madness game based upon statistics of each team and their games. The first round is where we will get match ups that already are scheduled. After that the coding will pick a winner and run through the entire tourney in the process.</p>
+<pre class="r"><code>games &lt;- read_csv(&quot;~/Downloads/cbblogs1521 2.csv&quot;) %&gt;% mutate(
+  Possessions = .5*(TeamFGA - TeamOffRebounds + TeamTurnovers + (.475 * TeamFTA)) + .5*(OpponentFGA - OpponentOffRebounds + OpponentTurnovers + (.475 * OpponentFTA)),
+  OffensiveRating = (TeamScore/Possessions)*100, 
+  DefensiveRating = (OpponentScore/Possessions)*100
+  ) %&gt;%
+  group_by(Team, Season) %&gt;%
+  mutate(
+  Cumulative_Pace = cummean(Possessions),
+  Cumulative_Mean_Offensive = cummean(OffensiveRating),
+  Cumulative_Mean_Defensive = cummean(DefensiveRating)
+  ) %&gt;% filter(between(Game, max(Game)-10, max(Game))) %&gt;% ungroup() %&gt;% 
+  mutate(
+    Location = case_when(
+    str_trim(HomeAway) == &quot;@&quot; ~ &quot;A&quot;,
+    str_trim(HomeAway) == &quot;N&quot; ~ &quot;N&quot;,
+    TRUE ~ &quot;H&quot;
+  ),
+ Outcome = case_when(
+  grepl(&quot;W&quot;, W_L) ~ &quot;W&quot;, 
+  grepl(&quot;L&quot;, W_L) ~ &quot;L&quot;
+ )
+) %&gt;%
+  mutate(Outcome = as.factor(Outcome)) </code></pre>
+<pre><code>## Parsed with column specification:
+## cols(
+##   .default = col_double(),
+##   Season = col_character(),
+##   Date = col_date(format = &quot;&quot;),
+##   TeamFull = col_character(),
+##   Opponent = col_character(),
+##   HomeAway = col_character(),
+##   W_L = col_character(),
+##   URL = col_character(),
+##   Conference = col_character(),
+##   Team = col_character()
+## )</code></pre>
+<pre><code>## See spec(...) for full column specifications.</code></pre>
+<p>Here is where a new dataframe called “selectedgames” is made which will select non statistical info such as team, date, opponent and outcome, along with statistcial cumulative and statistical info.</p>
+<pre class="r"><code>selectgames &lt;- games %&gt;% select(Season, Team, Date, Opponent, Outcome, Cumulative_Mean_Offensive, Cumulative_Mean_Defensive, Cumulative_Pace, TeamSRS, TeamSOS)</code></pre>
+<p>Here is where another dataframe called opponentgames is made. This is where some new stats on offense, pace and defense are filtered out.</p>
+<pre class="r"><code>opponentgames &lt;- selectgames %&gt;% select(-Opponent) %&gt;% rename(Opponent = Team, Opponent_Cumulative_Offensive = Cumulative_Mean_Offensive, Opponent_Cumulative_Mean_Defensive = Cumulative_Mean_Defensive, Opponent_Cumulative_Pace = Cumulative_Pace, OpponentSRS = TeamSRS, OpponentSOS = TeamSOS)</code></pre>
+<p>Here team and opponent game stats are combined.</p>
+<pre class="r"><code>bothteams &lt;- selectgames %&gt;% left_join(opponentgames, by=c(&quot;Opponent&quot;, &quot;Date&quot;, &quot;Season&quot;)) %&gt;% na.omit() %&gt;% select(-Outcome.y) %&gt;% rename(Outcome = Outcome.x)</code></pre>
+<p>Next is where I set up our training and testing data. This is for our march madness bracket. This is where we are setting up data that will be able to make predictions and also tell us how accurate the predictions will be.</p>
+<pre class="r"><code>bracket_split &lt;- initial_split(bothteams, prop = .8)
+bracket_train &lt;- training(bracket_split)
+bracket_test &lt;- testing(bracket_split)</code></pre>
+<p>Next I will begin to set up an xgboost model. This will help us get closer to making game predictions and getting outcomes based upon Wins (W) and Losses (L), etc. Each variable we have has a type, role and source shown below.</p>
+<pre class="r"><code>xg_rec &lt;- 
+  recipe(Outcome ~ ., data = bracket_train) %&gt;%
+  update_role(Team, Opponent, Date, Season, new_role = &quot;ID&quot;)
+
+summary(xg_rec)</code></pre>
+<pre><code>## # A tibble: 15 x 4
+##    variable                           type    role      source  
+##    &lt;chr&gt;                              &lt;chr&gt;   &lt;chr&gt;     &lt;chr&gt;   
+##  1 Season                             nominal ID        original
+##  2 Team                               nominal ID        original
+##  3 Date                               date    ID        original
+##  4 Opponent                           nominal ID        original
+##  5 Cumulative_Mean_Offensive          numeric predictor original
+##  6 Cumulative_Mean_Defensive          numeric predictor original
+##  7 Cumulative_Pace                    numeric predictor original
+##  8 TeamSRS                            numeric predictor original
+##  9 TeamSOS                            numeric predictor original
+## 10 Opponent_Cumulative_Offensive      numeric predictor original
+## 11 Opponent_Cumulative_Mean_Defensive numeric predictor original
+## 12 Opponent_Cumulative_Pace           numeric predictor original
+## 13 OpponentSRS                        numeric predictor original
+## 14 OpponentSOS                        numeric predictor original
+## 15 Outcome                            nominal outcome   original</code></pre>
+<p>This step is a continuation of getting XGBoost going. It is saved in a dataframe called xg_mod.</p>
+<pre class="r"><code>xg_mod &lt;-   boost_tree(
+  trees = tune(), 
+  learn_rate = tune(),
+  tree_depth = tune(), 
+  min_n = tune(),
+  loss_reduction = tune(), 
+  sample_size = tune(), 
+  mtry = tune(), 
+  ) %&gt;% 
+  set_mode(&quot;classification&quot;) %&gt;% 
+  set_engine(&quot;xgboost&quot;, nthread = cores)</code></pre>
+<p>Here xg_rec and xg_mod are combined in our bracket_wflow so that we can get closer to setting up our xgboost model.</p>
+<pre class="r"><code>bracket_wflow &lt;- 
+  workflow() %&gt;% 
+  add_model(xg_mod) %&gt;% 
+  add_recipe(xg_rec)</code></pre>
+<p>Here we use trees and our bracket train and create a sample size. This goes into our xbg_grid dataframe.</p>
+<pre class="r"><code>xgb_grid &lt;- grid_latin_hypercube(
+  trees(),
+  tree_depth(),
+  min_n(),
+  loss_reduction(),
+  sample_size = sample_prop(),
+  finalize(mtry(), bracket_train),
+  learn_rate(),
+  size = 30
+)
+
+xgb_grid</code></pre>
+<pre><code>## # A tibble: 30 x 7
+##    trees tree_depth min_n loss_reduction sample_size  mtry learn_rate
+##    &lt;int&gt;      &lt;int&gt; &lt;int&gt;          &lt;dbl&gt;       &lt;dbl&gt; &lt;int&gt;      &lt;dbl&gt;
+##  1   832         11    17  0.0662              0.545    11   1.66e- 4
+##  2    40          3     7  0.0207              0.282    12   9.19e- 8
+##  3  1857         12    28  0.00393             0.367     1   2.71e- 7
+##  4  1493          6    29  3.87                0.797     6   4.67e- 4
+##  5  1428         10    36  0.00000000981       0.118     3   3.12e- 6
+##  6   183         13    36  0.00000328          0.137     4   6.97e- 9
+##  7   694          5    24  0.00168             0.486     7   4.04e-10
+##  8   261          3    12  0.00000000101       0.422    14   4.91e- 8
+##  9   628          5    35  0.0000107           0.607     3   5.07e- 7
+## 10  1630         10     7  0.00584             0.864     8   5.00e- 5
+## # … with 20 more rows</code></pre>
+<p>Here we create another bracket dataframe for our bracket_train.</p>
+<pre class="r"><code>bracket_folds &lt;- vfold_cv(bracket_train)
+
+bracket_folds</code></pre>
+<pre><code>## #  10-fold cross-validation 
+## # A tibble: 10 x 2
+##    splits               id    
+##    &lt;list&gt;               &lt;chr&gt; 
+##  1 &lt;split [12.2K/1.4K]&gt; Fold01
+##  2 &lt;split [12.2K/1.4K]&gt; Fold02
+##  3 &lt;split [12.2K/1.4K]&gt; Fold03
+##  4 &lt;split [12.2K/1.4K]&gt; Fold04
+##  5 &lt;split [12.2K/1.4K]&gt; Fold05
+##  6 &lt;split [12.2K/1.4K]&gt; Fold06
+##  7 &lt;split [12.2K/1.4K]&gt; Fold07
+##  8 &lt;split [12.2K/1.4K]&gt; Fold08
+##  9 &lt;split [12.2K/1.4K]&gt; Fold09
+## 10 &lt;split [12.2K/1.4K]&gt; Fold10</code></pre>
+<p>Here is where an xgboost model is made using doParallel and our bracket workflow. This dataframe is saved as xgb_res.</p>
+<pre class="r"><code>doParallel::registerDoParallel(cores = cores)
+
+xgb_res &lt;- tune_grid(
+  bracket_wflow,
+  resamples = bracket_folds,
+  grid = xgb_grid,
+  control = control_grid(save_pred = TRUE)
+)</code></pre>
+<pre><code>## 
+## Attaching package: &#39;rlang&#39;</code></pre>
+<pre><code>## The following objects are masked from &#39;package:purrr&#39;:
+## 
+##     %@%, as_function, flatten, flatten_chr, flatten_dbl, flatten_int,
+##     flatten_lgl, flatten_raw, invoke, list_along, modify, prepend,
+##     splice</code></pre>
+<pre><code>## 
+## Attaching package: &#39;vctrs&#39;</code></pre>
+<pre><code>## The following object is masked from &#39;package:dplyr&#39;:
+## 
+##     data_frame</code></pre>
+<pre><code>## The following object is masked from &#39;package:tibble&#39;:
+## 
+##     data_frame</code></pre>
+<pre><code>## 
+## Attaching package: &#39;xgboost&#39;</code></pre>
+<pre><code>## The following object is masked from &#39;package:dplyr&#39;:
+## 
+##     slice</code></pre>
+<pre class="r"><code>doParallel::stopImplicitCluster()
+
+xgb_res</code></pre>
+<pre><code>## # Tuning results
+## # 10-fold cross-validation 
+## # A tibble: 10 x 5
+##    splits             id    .metrics         .notes         .predictions        
+##    &lt;list&gt;             &lt;chr&gt; &lt;list&gt;           &lt;list&gt;         &lt;list&gt;              
+##  1 &lt;split [12.2K/1.4… Fold… &lt;tibble [60 × 1… &lt;tibble [0 × … &lt;tibble [40,650 × 1…
+##  2 &lt;split [12.2K/1.4… Fold… &lt;tibble [60 × 1… &lt;tibble [0 × … &lt;tibble [40,620 × 1…
+##  3 &lt;split [12.2K/1.4… Fold… &lt;tibble [60 × 1… &lt;tibble [0 × … &lt;tibble [40,620 × 1…
+##  4 &lt;split [12.2K/1.4… Fold… &lt;tibble [60 × 1… &lt;tibble [0 × … &lt;tibble [40,620 × 1…
+##  5 &lt;split [12.2K/1.4… Fold… &lt;tibble [60 × 1… &lt;tibble [0 × … &lt;tibble [40,620 × 1…
+##  6 &lt;split [12.2K/1.4… Fold… &lt;tibble [60 × 1… &lt;tibble [0 × … &lt;tibble [40,620 × 1…
+##  7 &lt;split [12.2K/1.4… Fold… &lt;tibble [60 × 1… &lt;tibble [0 × … &lt;tibble [40,620 × 1…
+##  8 &lt;split [12.2K/1.4… Fold… &lt;tibble [60 × 1… &lt;tibble [0 × … &lt;tibble [40,620 × 1…
+##  9 &lt;split [12.2K/1.4… Fold… &lt;tibble [60 × 1… &lt;tibble [0 × … &lt;tibble [40,620 × 1…
+## 10 &lt;split [12.2K/1.4… Fold… &lt;tibble [60 × 1… &lt;tibble [0 × … &lt;tibble [40,620 × 1…</code></pre>
+<p>Here I expand the metrics for our xgboost.</p>
+<pre class="r"><code>collect_metrics(xgb_res)</code></pre>
+<pre><code>## # A tibble: 60 x 13
+##     mtry trees min_n tree_depth learn_rate loss_reduction sample_size .metric
+##    &lt;int&gt; &lt;int&gt; &lt;int&gt;      &lt;int&gt;      &lt;dbl&gt;          &lt;dbl&gt;       &lt;dbl&gt; &lt;chr&gt;  
+##  1     2   742    21          1    1.67e-2  5.43                0.571 accura…
+##  2     2   742    21          1    1.67e-2  5.43                0.571 roc_auc
+##  3     9   281    16          2    1.85e-7  0.483               0.656 accura…
+##  4     9   281    16          2    1.85e-7  0.483               0.656 roc_auc
+##  5     7   939    39          2    9.39e-4  0.0329              0.726 accura…
+##  6     7   939    39          2    9.39e-4  0.0329              0.726 roc_auc
+##  7    12    40     7          3    9.19e-8  0.0207              0.282 accura…
+##  8    12    40     7          3    9.19e-8  0.0207              0.282 roc_auc
+##  9    14   261    12          3    4.91e-8  0.00000000101       0.422 accura…
+## 10    14   261    12          3    4.91e-8  0.00000000101       0.422 roc_auc
+## # … with 50 more rows, and 5 more variables: .estimator &lt;chr&gt;, mean &lt;dbl&gt;,
+## #   n &lt;int&gt;, std_err &lt;dbl&gt;, .config &lt;fct&gt;</code></pre>
+<p>Now we begin to set up the xgboost predictive model using roc_auc.</p>
+<pre class="r"><code>show_best(xgb_res, &quot;roc_auc&quot;)</code></pre>
+<pre><code>## # A tibble: 5 x 13
+##    mtry trees min_n tree_depth learn_rate loss_reduction sample_size .metric
+##   &lt;int&gt; &lt;int&gt; &lt;int&gt;      &lt;int&gt;      &lt;dbl&gt;          &lt;dbl&gt;       &lt;dbl&gt; &lt;chr&gt;  
+## 1     5   542    14          8    3.39e-4   0.0000675          0.220 roc_auc
+## 2    14  1301    39          9    3.70e-3   0.000403           0.758 roc_auc
+## 3     6  1493    29          6    4.67e-4   3.87               0.797 roc_auc
+## 4     5  1785    33          7    1.81e-9   0.0000000617       0.890 roc_auc
+## 5     3   628    35          5    5.07e-7   0.0000107          0.607 roc_auc
+## # … with 5 more variables: .estimator &lt;chr&gt;, mean &lt;dbl&gt;, n &lt;int&gt;,
+## #   std_err &lt;dbl&gt;, .config &lt;fct&gt;</code></pre>
+<pre class="r"><code>best_roc &lt;- select_best(xgb_res, &quot;roc_auc&quot;)</code></pre>
+<p>This step finishes off the xgboost workflow.</p>
+<pre class="r"><code>final_xgb &lt;- finalize_workflow(
+  bracket_wflow,
+  best_roc
+)
+
+final_xgb</code></pre>
+<pre><code>## ══ Workflow ════════════════════════════════════════════════════════════════════
+## Preprocessor: Recipe
+## Model: boost_tree()
+## 
+## ── Preprocessor ────────────────────────────────────────────────────────────────
+## 0 Recipe Steps
+## 
+## ── Model ───────────────────────────────────────────────────────────────────────
+## Boosted Tree Model Specification (classification)
+## 
+## Main Arguments:
+##   mtry = 5
+##   trees = 542
+##   min_n = 14
+##   tree_depth = 8
+##   learn_rate = 0.000339075602847588
+##   loss_reduction = 6.74977063476923e-05
+##   sample_size = 0.220483402411919
+## 
+## Engine-Specific Arguments:
+##   nthread = cores
+## 
+## Computational engine: xgboost</code></pre>
+<p>This step is also necessary for the above coding. I am using the dataframes of xg_fit and final_xgb.</p>
+<pre class="r"><code>xg_fit &lt;- 
+  final_xgb %&gt;% 
+  fit(data = bracket_train)</code></pre>
+<pre><code>## [06:09:43] WARNING: amalgamation/../src/learner.cc:1061: Starting in XGBoost 1.3.0, the default evaluation metric used with the objective &#39;binary:logistic&#39; was changed from &#39;error&#39; to &#39;logloss&#39;. Explicitly set eval_metric if you&#39;d like to restore the old behavior.</code></pre>
+<p>Here I get going the training data split and get it going with xgfit.</p>
+<pre class="r"><code>trainresults &lt;- bracket_train %&gt;%
+  bind_cols(predict(xg_fit, bracket_train))</code></pre>
+<p>Here I get the metrics with the accuracy of the 2021 March Madness games that the code will be predicting. The accuracy that is generated is 71 percent, which is not great, but is still good enough to predict games at a fairly decent level. This is the train results.</p>
+<pre class="r"><code>metrics(trainresults, truth = Outcome, estimate = .pred_class)</code></pre>
+<pre><code>## # A tibble: 2 x 3
+##   .metric  .estimator .estimate
+##   &lt;chr&gt;    &lt;chr&gt;          &lt;dbl&gt;
+## 1 accuracy binary         0.711
+## 2 kap      binary         0.422</code></pre>
+<pre class="r"><code>testresults &lt;- bracket_test %&gt;%
+  bind_cols(predict(xg_fit, bracket_test))</code></pre>
+<p>Here is the accuracy of the test results which is the other half of the predicting metrics. It is at 68 percent accuracy which is not as good as our train results.</p>
+<pre class="r"><code>metrics(testresults, truth = Outcome, estimate = .pred_class)</code></pre>
+<pre><code>## # A tibble: 2 x 3
+##   .metric  .estimator .estimate
+##   &lt;chr&gt;    &lt;chr&gt;          &lt;dbl&gt;
+## 1 accuracy binary         0.683
+## 2 kap      binary         0.365</code></pre>
+<p>Here is an example of how the tibble predictor is set up for all of our games. These are just the first four games of the tourney that happen on Thursday before round 1 starts on Friday, These are essentially the play in games. I will use the tibble predictor for all 63 games of March Madness. I will not go through the code of all of the games because that would take forever. But now that I have everything set up, I can go through each region and see how I predicted things and how the tournement ended up in comparison to the first two rounds of March Madness that I predicted using coding.</p>
+<pre class="r"><code>playin &lt;- tibble(
+  Team=&quot;Norfolk State&quot;,
+  Opponent=&quot;Appalachian State&quot;,
+  Date = as.Date(&quot;2021-03-19&quot;)
+) %&gt;% add_row(
+  Team=&quot;Wichita State&quot;,
+  Opponent=&quot;Drake&quot;,
+  Date = as.Date(&quot;2021-03-19&quot;)
+) %&gt;% add_row(
+  Team=&quot;Mount St. Mary&#39;s&quot;,
+  Opponent=&quot;Texas Southern&quot;,
+  Date = as.Date(&quot;2021-03-19&quot;)
+) %&gt;% add_row(
+  Team=&quot;Michigan State&quot;,
+  Opponent=&quot;UCLA&quot;,
+  Date = as.Date(&quot;2021-03-19&quot;)
+)</code></pre>
+<p>Below has Team and Opponent along with their predicted outcome in “pred_class and .pred_L as the percentage chance of the opponent given. This is where the weirdest predictions were made. It seems the model was pretty certain about all of the games as it was in the 80s and 90s predicting that all the”Opponents&quot; would win. For example, the model was giving UCLA a 96% chance to win, which is kind of radical.</p>
+<p>Team .pred_class Opponent .pred_L
+Norfolk State L Appalachian State 0.9368487
+Wichita State L Drake 0.9346162
+Mount St. Mary’s L Texas Southern 0.8230607
+Michigan State L UCLA 0.9667672</p>
+<p>I will start with the west region and show my results for each region until they have a regional champ that will go to the final 4. After I get each region, I will have the final 4!</p>
+<div id="west-first-round" class="section level3">
+<h3>West First Round</h3>
+<p>Team .pred_class Opponent .pred_W
+Creighton W UC-Santa Barbara 0.7439833
+Southern California W Drake 0.5802197
+Kansas W Eastern Washington 0.8439503
+Iowa W Grand Canyon 0.8200125
+Oklahoma W Missouri 0.5037518
+Virginia W Ohio 0.7843739
+Oregon W Virginia Commonwealth 0.5427430
+Gonzaga W Appalachian state 0.9978610</p>
+</div>
+<div id="west-second-round" class="section level3">
+<h3>West Second Round</h3>
+<p>Team .pred_class Opponent .pred_W
+Oregon L Iowa 0.2759048
+Southern California W Kansas 0.5007157
+Gonzaga W Oklahoma 0.7167152
+Creighton W Virginia 0.5461548</p>
+</div>
+<div id="west-sweet-16" class="section level3">
+<h3>West Sweet 16</h3>
+<p>Team .pred_class Opponent .pred_W
+Gonzaga W Creighton 0.593780
+Iowa W Southern California 0.576448</p>
+</div>
+<div id="west-elite-8" class="section level3">
+<h3>West Elite 8</h3>
+<p>Team .pred_class Opponent .pred_W
+Gonzaga L Iowa 0.4813809</p>
+<p>My XGBoost model unfortunately had Iowa winning over Gonzaga atabout 52 percent chance to go to the final 4. Iowa lost to Oregon in round 2 in reality. USC, Gonzaga and Creighton were all predicted correctly as those teams are in the sweet 16.</p>
+<p>Now we will look at the East region and see how the XGBoost model predicted that region.</p>
+</div>
+<div id="east-first-round" class="section level3">
+<h3>East First Round</h3>
+<p>Team .pred_class Opponent .pred_W
+Texas W Abilene Christian 0.8318739
+Colorado W Georgetown 0.6434735
+Alabama W Iona 0.9312560
+Connecticut W Maryland 0.6036153
+Florida State W North Carolina-Greensboro 0.8340587
+Louisiana State L St. Bonaventure 0.4270189
+Michigan W Texas Southern 0.9884534
+Brigham Young W UCLA 0.5774545</p>
+</div>
+<div id="east-second-round" class="section level3">
+<h3>East Second Round</h3>
+<p>Team .pred_class Opponent .pred_W
+Connecticut L Alabama 0.4165969
+Colorado L Florida State 0.4755675
+Michigan W St. Bonaventure 0.6957040
+Brigham Young L Texas 0.4514499</p>
+</div>
+<div id="east-sweet-16" class="section level3">
+<h3>East Sweet 16</h3>
+<p>Team .pred_class Opponent .pred_W
+Florida state L Michigan 0.0018516
+Alabama W Texas 0.6119115</p>
+</div>
+<div id="east-elite-8" class="section level3">
+<h3>East Elite 8</h3>
+<p>Team .pred_class Opponent .pred_W
+Michigan W Alabama 0.5520016</p>
+<p>My model has Michigan winning the east over Alabama in the elite 8 at a 55 percent chance. My Model had a decent sweet 16 for the east region. It has Michigan, Alabama, Texas and Florida state. This is 3 out of 4 teams represented for the coming weekend of the sweet 16.</p>
+<p>Now we take a look at the south region.</p>
+</div>
+<div id="south-first-round" class="section level3">
+<h3>South First Round</h3>
+<p>Team .pred_class Opponent .pred_W
+Arkansas L Colgate 0.4647990
+Baylor W Hartford 0.9478887
+Purdue W North Texas 0.7609836
+Ohio State W Oral Roberts 0.9108317
+Texas Tech W Utah State 0.5628588
+Florida L Virginia Tech 0.4471319
+Villanova W Winthrop 0.8333548
+North Carolina L Wisconsin 0.3778572</p>
+<p>GET READY FOR SOME COLGATE MADNESS!</p>
+</div>
+<div id="south-second-round" class="section level3">
+<h3>South Second Round</h3>
+<p>Team .pred_class Opponent .pred_W
+Texas Tech L Colgate 0.4110797
+Virginia Tech L Ohio State 0.3975107
+Villanova L Purdue 0.4892673
+Baylor W Wisconsin 0.5259360</p>
+</div>
+<div id="south-sweet-16" class="section level3">
+<h3>South Sweet 16</h3>
+<p>Team .pred_class Opponent .pred_W
+Purdue L Baylor 0.4864209
+Ohio state L Colgate 0.0025529</p>
+<p>I do not know how in the world my model gave Ohio state a near 0 percent chance of winning over Colgate, but it did. Colgate definitely caused my model problems because of their good 3 point shooting and weird conference only schedule which made them 14-1.</p>
+</div>
+<div id="south-elite-8" class="section level3">
+<h3>South Elite 8</h3>
+<p>Team .pred_class Opponent .pred_W
+Baylor L Colgate 0.4857287</p>
+<p>My model has Colgate winning the south region over Baylor at a 51.5 chance. This game is a toss up but Colgate gets slight edge according to xgboost. I got 1 out of 4 of the sweet 16 in this region. Only Baylor still remains of the 4 teams we had in the model.</p>
+<p>Now we will look at the midwest region.</p>
+</div>
+<div id="midwest-first-round" class="section level3">
+<h3>Midwest First Round</h3>
+<p>Team .pred_class Opponent .pred_W
+Houston W Cleveland State 0.9639129
+Illinois W Drexel 0.9343985
+Loyola (IL) W Georgia Tech 0.5976201
+Oklahoma State W Liberty 0.6289431
+West Virginia W Morehead State 0.8755722
+Tennessee W Oregon State 0.7806442
+Clemson W Rutgers 0.5359518
+San Diego State W Syracuse 0.6179006</p>
+</div>
+<div id="midwest-second-round" class="section level3">
+<h3>Midwest Second Round</h3>
+<p>Team .pred_class Opponent .pred_W
+Clemson L Houston 0.2427332
+Illinois W Loyola (IL) 0.6316999
+Tennessee W Oklahoma State 0.5988309
+San Diego State W West Virginia 0.5608854</p>
+</div>
+<div id="midwest-sweet-16" class="section level3">
+<h3>Midwest Sweet 16</h3>
+<p>Team .pred_class Opponent .pred_W
+Houston L San Diego State 0.6192924
+Illinois L Tennessee 0.6012860</p>
+</div>
+<div id="midwest-elite-8" class="section level3">
+<h3>Midwest Elite 8</h3>
+<p>Team .pred_class Opponent .pred_W
+San Diego State L Tennessee 0.448014</p>
+<p>My model predicts that Tennessee will win the midwest region. It only has 1 team in the sweet 16 correct with Houston. This region went 1 for 4 like it did with the south. In total, my model got half of the sweet 16 right. It has done straight average thus far.</p>
+<p>Now we will look at the Final 4.</p>
+</div>
+<div id="final-4" class="section level3">
+<h3>Final 4</h3>
+<p>Team .pred_class Opponent .pred_W
+Iowa L Michigan 0.4314118
+Colgate W Tennessee 0.5210085</p>
+<p>My Model has Michigan vs Colgate in the national championship. Colgate lost in round one to Arkansas this past weekend. Michigan is still in it as we predicted.</p>
+</div>
+<div id="national-championship" class="section level3">
+<h3>National Championship</h3>
+<p>Team .pred_class Opponent .pred_W
+Michigan W Colgate 0.5618459</p>
+<p>Here it has predicted Michigan as the national champion over Colgate at a 56 percent chance. Michigan could still win, so we will see how they do in the upcoming games of March Madness. Colgate going all the way in my model is hilarious to me.</p>
+<p>Below is the March Madness Bracket showing my picks and it will show which teams won each game and where my model was right in black and wrong in red.</p>
+<p><embed src="images/Jimmer%20Range%20-%20Tournament%20Challenge%20-%20ESPN.pdf" width="400" height="200" /></p>
+</div>
+
+    </div>
+  </article>
+
+  
+
+
+</main>
+
+      <footer class="footer">
+        <ul class="footer-links">
+          <li>
+            <a href="/index.xml" type="application/rss+xml" target="_blank">RSS feed</a>
+          </li>
+          <li>
+            <a href="https://gohugo.io/" class="footer-links-kudos">Made with <img src="/images/hugo-logo.png" alt="Img link to Hugo website" width="22" height="22"></a>
+          </li>
+        </ul>
+      </footer>
+
+    </div>
+    
+
+
+
+<script src="//cdnjs.cloudflare.com/ajax/libs/highlight.js/9.12.0/highlight.min.js"></script>
+
+
+
+<script src="//cdnjs.cloudflare.com/ajax/libs/highlight.js/9.12.0/languages/r.min.js"></script>
+<script src="//cdnjs.cloudflare.com/ajax/libs/highlight.js/9.12.0/languages/yaml.min.js"></script>
+<script>hljs.configure({languages: []}); hljs.initHighlightingOnLoad();</script>
+
+
+
+    
+
+    
+  </body>
+</html>
+
